@@ -100,15 +100,72 @@
       outline: none;
     }
 
-    /* ===== SCROLLBAR ===== */
-    ::-webkit-scrollbar { width: 10px; height: 10px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb {
-      background: rgba(169, 116, 255, .18);
-      border-radius: 999px;
-      border: 2px solid var(--midnight);
+    /* ===== SCROLLBAR (кастомный, в цветах сайта) =====
+       Chrome / Edge / Safari — через ::-webkit-scrollbar (градиент, скругление).
+       Firefox — через scrollbar-color / scrollbar-width (градиенты там не поддерживаются).
+       Ползунок «плавает» внутри дорожки за счёт прозрачной рамки + background-clip. */
+    :root {
+      --sb-size: 14px;
+      --sb-track: transparent;
+      --sb-thumb: rgba(169, 116, 255, .42);
+      --sb-thumb-hover: rgba(186, 141, 255, .75);
+      --sb-thumb-active: #BA8DFF;
     }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(169, 116, 255, .38); }
+
+    /* Резервируем место под полосу: при открытии меню (body.is-locked → overflow:hidden)
+       контент не «прыгает» вправо на ширину скроллбара */
+    html { scrollbar-gutter: stable; }
+
+    /* Firefox */
+    @supports (scrollbar-width: thin) and (not selector(::-webkit-scrollbar)) {
+      html { scrollbar-width: thin; scrollbar-color: var(--sb-thumb) transparent; }
+    }
+
+    ::-webkit-scrollbar { width: var(--sb-size); height: var(--sb-size); }
+    ::-webkit-scrollbar-corner { background: transparent; }
+
+    /* Дорожка: прозрачная — фон страницы (с подсветкой и стеклянной шапкой)
+       остаётся цельным, виден только сам ползунок */
+    ::-webkit-scrollbar-track {
+      background: var(--sb-track);
+      border: 0;
+    }
+
+    /* Ползунок: скруглённая «таблетка» с градиентом из палитры сайта */
+    ::-webkit-scrollbar-thumb {
+      background:
+        linear-gradient(180deg, rgba(186, 141, 255, .7), rgba(138, 91, 217, .7))
+        padding-box;
+      background-color: var(--sb-thumb);
+      border: 3px solid transparent;
+      border-radius: 999px;
+      background-clip: padding-box;
+      min-height: 48px;
+      transition: background-color 180ms ease;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background:
+        linear-gradient(180deg, #C9A3FF, #A974FF)
+        padding-box;
+      background-clip: padding-box;
+    }
+    ::-webkit-scrollbar-thumb:active {
+      background:
+        linear-gradient(180deg, #D6B8FF, #BA8DFF)
+        padding-box;
+      background-clip: padding-box;
+    }
+
+    /* Меню-drawer: тонкий скроллбар без дорожки, чтобы не перетягивать внимание */
+    .drawer::-webkit-scrollbar { width: 8px; }
+    .drawer::-webkit-scrollbar-track { background: transparent; border: 0; }
+    .drawer::-webkit-scrollbar-thumb {
+      background: rgba(169, 116, 255, .3) padding-box;
+      border: 2px solid transparent;
+      border-radius: 999px;
+    }
+    .drawer::-webkit-scrollbar-thumb:hover { background: rgba(169, 116, 255, .55) padding-box; }
+    .drawer { scrollbar-width: thin; scrollbar-color: rgba(169, 116, 255, .3) transparent; }
 
     /* ===== SCROLL PROGRESS ===== */
     .scroll-progress {
