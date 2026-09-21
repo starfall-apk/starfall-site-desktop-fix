@@ -1193,7 +1193,7 @@
     /* ===== DESKTOP TUNING (только ПК, >600px; мобильная версия не затронута) ===== */
     @media (min-width: 601px) {
       /* Полный логотип в шапке */
-      .header-brand img.header-brand-full { height: 38px; width: auto; max-width: none; }
+      .header-brand img.header-brand-full { height: 32px; width: auto; max-width: none; }
 
       /* Компактные вертикальные отступы между блоками */
       .hero { padding-block: clamp(var(--space-4), 2vw, 28px) clamp(var(--space-5), 3vw, 40px); }
@@ -1208,6 +1208,40 @@
       .section-header { gap: var(--space-2); margin-bottom: var(--space-4); }
 
       .site-footer { padding-block: var(--space-4); }
+    }
+
+    /* ===== HEADER GLASS (ПК: матовое размытие под шапкой) =====
+       Размытие вынесено в псевдоэлемент и включается только через opacity —
+       это дешёвая композиторная анимация. Само размытие не анимируется,
+       область ограничена высотой шапки, радиус небольшой, без saturate.
+       Только для ПК (мышь + ширина > 600px), как и раньше. */
+    @media (min-width: 601px) and (hover: hover) and (pointer: fine) {
+      .site-header,
+      .site-header.is-scrolled {
+        background: transparent;
+        -webkit-backdrop-filter: none;
+        backdrop-filter: none;
+      }
+      .site-header::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        background: rgba(26, 22, 37, .55);
+        -webkit-backdrop-filter: blur(12px);
+        backdrop-filter: blur(12px);
+        opacity: 0;
+        transition: opacity var(--dur) var(--ease);
+      }
+      .site-header.is-scrolled::before { opacity: 1; }
+    }
+
+    /* Браузеры без backdrop-filter: просто плотнее фон, без размытия */
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      @media (min-width: 601px) and (hover: hover) and (pointer: fine) {
+        .site-header::before { background: rgba(26, 22, 37, .9); }
+      }
     }
   </style>
 </head>
