@@ -683,12 +683,12 @@
     }
 
     /* Мобильный вид (как было): полный логотип с надписью.
-       На десктопе — крупный краткий логотип в квадратном месте. */
-    .hero-logo-desktop { display: none; }
+       На десктопе — только краткий логотип в квадратном месте, full-logo не показывается. */
+    .hero-logo-inner img.hero-logo-desktop { display: none; }
 
     @media (min-width: 601px) {
-      .hero-logo-mobile { display: none; }
-      .hero-logo-desktop { display: block; }
+      .hero-logo-inner img.hero-logo-mobile { display: none; }
+      .hero-logo-inner img.hero-logo-desktop { display: block; }
     }
 
     /* ===== SECTIONS ===== */
