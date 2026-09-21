@@ -1189,6 +1189,26 @@
     }
     .drawer-item.is-active .material-icons-round { color: var(--orchid); }
     .header-nav a.is-active { color: var(--orchid); background: rgba(169,116,255,.1); }
+  
+    /* ===== DESKTOP TUNING (только ПК, >600px; мобильная версия не затронута) ===== */
+    @media (min-width: 601px) {
+      /* Крупный полный логотип в шапке */
+      .header-brand img.header-brand-full { height: 52px; width: auto; max-width: none; }
+
+      /* Компактнее вертикальные отступы между блоками */
+      .hero { padding-block: clamp(var(--space-5), 3vw, 48px) clamp(var(--space-6), 4vw, 56px); }
+      .hero-content { gap: var(--space-4); }
+      .hero-grid { gap: var(--space-7); }
+
+      .page-hero { padding-block: clamp(var(--space-5), 3vw, 40px) clamp(var(--space-4), 2vw, 24px); }
+      .page-hero .hero-eyebrow { margin-bottom: var(--space-2); }
+      .page-hero h1 { margin-bottom: var(--space-3); }
+
+      .section { padding-block: clamp(var(--space-5), 3vw, 40px); }
+      .section-header { gap: var(--space-2); margin-bottom: var(--space-5); }
+
+      .site-footer { padding-block: var(--space-5); }
+    }
   </style>
 </head>
 <body>
