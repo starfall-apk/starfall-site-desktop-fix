@@ -168,7 +168,16 @@ html { scrollbar-gutter: stable; }
   box-shadow: 0 0 12px rgba(169,116,255,.6);
 }
 
-/* ===== BG LAYER ===== */
+/* ===== BG LAYER =====
+   .bg-layer — истинная граница обрезки: строго под размер вьюпорта,
+   САМ никогда не двигается и не трансформируется. Всё, что «плывёт»
+   (курсор-переливание, дрейф, пятна), происходит только у вложенного
+   .bg-shimmer, который заведомо больше вьюпорта (inset отрицательный).
+   Поэтому сколько бы .bg-shimmer ни сдвигался/масштабировался, его
+   собственные края никогда не окажутся внутри видимой области —
+   .bg-layer их всегда обрежет раньше. Раньше transform вешался прямо
+   на .bg-layer, то есть двигалась сама рамка обрезки — отсюда и был
+   виден край эффекта у границ экрана. */
 .bg-layer {
   position: fixed;
   inset: 0;
@@ -178,26 +187,35 @@ html { scrollbar-gutter: stable; }
   contain: strict;
 }
 
+/* Оверскан с большим запасом: даже с учётом максимального сдвига
+   (translate) и увеличения (scale) от курсора и дрейфа, край
+   .bg-shimmer остаётся далеко за пределами вьюпорта на любом
+   разрешении экрана. */
+.bg-shimmer {
+  position: absolute;
+  inset: -35%;
+}
+
 .bg-base {
   position: absolute;
-  inset: -40%;
+  inset: -25%;
   background:
-    radial-gradient(ellipse 50% 60% at 20% 30%, rgba(169,116,255,.22), transparent 70%),
-    radial-gradient(ellipse 45% 55% at 80% 20%, rgba(138,91,217,.18), transparent 70%),
-    radial-gradient(ellipse 55% 50% at 60% 80%, rgba(169,116,255,.14), transparent 70%),
-    radial-gradient(ellipse 40% 45% at 10% 80%, rgba(138,91,217,.12), transparent 70%);
+    radial-gradient(ellipse 50% 60% at 20% 30%, rgba(169,116,255,.28), transparent 70%),
+    radial-gradient(ellipse 45% 55% at 80% 20%, rgba(148,101,227,.24), transparent 70%),
+    radial-gradient(ellipse 55% 50% at 60% 80%, rgba(169,116,255,.19), transparent 70%),
+    radial-gradient(ellipse 40% 45% at 10% 80%, rgba(138,91,217,.17), transparent 70%);
 }
 
 .bg-shine {
   position: absolute;
-  inset: -60%;
+  inset: -35%;
   background: linear-gradient(
     115deg,
-    transparent 42%,
-    rgba(169,116,255,.055) 47%,
-    rgba(232,228,240,.05) 50%,
-    rgba(169,116,255,.055) 53%,
-    transparent 58%
+    transparent 40%,
+    rgba(169,116,255,.09) 47%,
+    rgba(232,228,240,.08) 50%,
+    rgba(169,116,255,.09) 53%,
+    transparent 60%
   );
   animation: shineSweep 26s ease-in-out infinite;
   will-change: transform;
@@ -235,15 +253,15 @@ html { scrollbar-gutter: stable; }
   }
   .bg-base::before {
     background:
-      radial-gradient(ellipse 42% 48% at 28% 24%, rgba(186,141,255,.30), transparent 68%),
-      radial-gradient(ellipse 38% 44% at 74% 66%, rgba(138,91,217,.22), transparent 68%);
+      radial-gradient(ellipse 42% 48% at 28% 24%, rgba(186,141,255,.36), transparent 68%),
+      radial-gradient(ellipse 38% 44% at 74% 66%, rgba(148,101,227,.27), transparent 68%);
     animation: bgPulseA 17s ease-in-out infinite;
     transform-origin: 30% 25%;
   }
   .bg-base::after {
     background:
-      radial-gradient(ellipse 40% 46% at 70% 18%, rgba(169,116,255,.24), transparent 70%),
-      radial-gradient(ellipse 36% 40% at 20% 78%, rgba(186,141,255,.18), transparent 70%);
+      radial-gradient(ellipse 40% 46% at 70% 18%, rgba(169,116,255,.29), transparent 70%),
+      radial-gradient(ellipse 36% 40% at 20% 78%, rgba(196,155,255,.22), transparent 70%);
     animation: bgPulseB 23s ease-in-out infinite;
     transform-origin: 70% 20%;
   }
@@ -256,13 +274,13 @@ html { scrollbar-gutter: stable; }
 }
 
 @keyframes bgPulseA {
-  0%, 100% { opacity: .7;  transform: scale(1)     translate3d(0, 0, 0); }
-  50%      { opacity: 1;   transform: scale(1.12)  translate3d(2%, -2%, 0); }
+  0%, 100% { opacity: .72;  transform: scale(1)     translate3d(0, 0, 0); }
+  50%      { opacity: 1;    transform: scale(1.14)  translate3d(2%, -2%, 0); }
 }
 
 @keyframes bgPulseB {
-  0%, 100% { opacity: .55; transform: scale(1.08)  translate3d(0, 0, 0); }
-  50%      { opacity: .95; transform: scale(1)     translate3d(-2%, 2%, 0); }
+  0%, 100% { opacity: .58; transform: scale(1.09)  translate3d(0, 0, 0); }
+  50%      { opacity: 1;   transform: scale(1.01)  translate3d(-2%, 2%, 0); }
 }
 
 /* ===== ПЕРЕЛИВАНИЕ ФОНА (mobile: привязано к скроллу, максимально дёшево — один transform, без repaint) ===== */
@@ -285,19 +303,23 @@ html { scrollbar-gutter: stable; }
    накопителя и никакой перепривязки анимаций: --shimmer-x/-y (сглаженное,
    с задержкой направление курсора) и --shimmer-amt (сглаженная величина)
    лишь добавляют statically-независимый translate3d поверх уже идущего
-   keyframe-дрейфа — на родительском .bg-layer, transform которого
-   не участвует ни в одной keyframe-анимации, поэтому конфликтов фазы
-   в принципе быть не может. */
+   keyframe-дрейфа — на .bg-shimmer, вложенном в .bg-layer и намного
+   больше вьюпорта (inset: -35%). Двигается и масштабируется теперь ТОЛЬКО
+   этот внутренний, заведомо больше-чем-экран слой — сам .bg-layer
+   (истинная граница обрезки видимой области) не трансформируется вообще
+   и всегда точно совпадает с краями экрана, поэтому край переливания
+   больше никогда не может оказаться виден внутри вьюпорта, на экране
+   любого размера и соотношения сторон. */
 @media (hover: hover) and (pointer: fine) {
-  .bg-layer {
+  .bg-shimmer {
     transform: translate3d(
-      calc(var(--shimmer-x, 0) * 26px),
-      calc(var(--shimmer-y, 0) * 26px),
+      calc(var(--shimmer-x, 0) * 22px),
+      calc(var(--shimmer-y, 0) * 22px),
       0
-    );
+    ) scale(1.06);
     /* filter не анимируется ни в одном keyframe — безопасно модулировать
        напрямую, без риска конфликта фазы. */
-    filter: brightness(calc(1 + var(--shimmer-amt, 0) * 0.18));
+    filter: brightness(calc(1 + var(--shimmer-amt, 0) * 0.22));
   }
 }
 
