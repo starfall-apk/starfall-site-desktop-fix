@@ -214,6 +214,48 @@ html { scrollbar-gutter: stable; }
   50%      { transform: translate3d(12%, 8%, 0); }
 }
 
+/* ===== ПЕРЕЛИВАНИЕ ФОНА (desktop: плавная автономная анимация) ===== */
+@media (hover: hover) and (pointer: fine) {
+  .bg-base {
+    background:
+      radial-gradient(ellipse 55% 65% at var(--bgx1, 20%) var(--bgy1, 30%), rgba(169,116,255,.26), transparent 70%),
+      radial-gradient(ellipse 48% 58% at var(--bgx2, 80%) var(--bgy2, 20%), rgba(138,91,217,.20), transparent 70%),
+      radial-gradient(ellipse 58% 52% at var(--bgx3, 60%) var(--bgy3, 80%), rgba(186,141,255,.16), transparent 70%),
+      radial-gradient(ellipse 42% 46% at 10% 80%, rgba(138,91,217,.12), transparent 70%);
+    animation: bgDrift 22s var(--ease) infinite;
+    will-change: background;
+  }
+  .bg-shine {
+    animation: shineSweep 16s ease-in-out infinite;
+    background: linear-gradient(
+      115deg,
+      transparent 40%,
+      rgba(169,116,255,.09) 47%,
+      rgba(232,228,240,.08) 50%,
+      rgba(186,141,255,.09) 53%,
+      transparent 60%
+    );
+  }
+}
+
+@keyframes bgDrift {
+  0%   { --bgx1: 20%; --bgy1: 30%; --bgx2: 80%; --bgy2: 20%; --bgx3: 60%; --bgy3: 80%; }
+  25%  { --bgx1: 32%; --bgy1: 42%; --bgx2: 68%; --bgy2: 32%; --bgx3: 45%; --bgy3: 70%; }
+  50%  { --bgx1: 15%; --bgy1: 55%; --bgx2: 75%; --bgy2: 48%; --bgx3: 55%; --bgy3: 60%; }
+  75%  { --bgx1: 28%; --bgy1: 25%; --bgx2: 60%; --bgy2: 60%; --bgx3: 70%; --bgy3: 75%; }
+  100% { --bgx1: 20%; --bgy1: 30%; --bgx2: 80%; --bgy2: 20%; --bgx3: 60%; --bgy3: 80%; }
+}
+
+/* ===== ПЕРЕЛИВАНИЕ ФОНА (mobile: привязано к скроллу, максимально дёшево — один transform, без repaint) ===== */
+@media (hover: none), (pointer: coarse) {
+  .bg-base,
+  .bg-shine {
+    transform: translate3d(0, calc(var(--scroll-p, 0) * -14px), 0) rotate(calc(var(--scroll-p, 0) * 1.2deg));
+    animation: none;
+  }
+  .bg-shine { opacity: calc(.55 + var(--scroll-p, 0) * .45); }
+}
+
 /* ===== SKIP LINK ===== */
 .skip-link {
   position: absolute; top: -100%; left: var(--space-4);
@@ -670,6 +712,31 @@ html { scrollbar-gutter: stable; }
   transform: rotate(-10deg);
 }
 
+/* ===== BUTTON TEXT SLIDE (только desktop с точным hover) ===== */
+@media (hover: hover) and (pointer: fine) {
+  .btn-label {
+    position: relative;
+    display: inline-block;
+    overflow: hidden;
+    line-height: 1.15em;
+    height: 1.15em;
+    vertical-align: middle;
+  }
+  .btn-label-stack {
+    display: block;
+    transition: transform 420ms var(--ease-spring);
+    will-change: transform;
+  }
+  .btn-label-stack span {
+    display: block;
+    line-height: 1.15em;
+    height: 1.15em;
+  }
+  .btn:hover .btn-label-stack {
+    transform: translate3d(0, -1.15em, 0);
+  }
+}
+
 .ripple {
   position: absolute;
   border-radius: 50%;
@@ -721,6 +788,62 @@ html { scrollbar-gutter: stable; }
 @keyframes glowBreath {
   0%   { transform: scale(.92); opacity: .75; }
   100% { transform: scale(1.08); opacity: 1; }
+}
+
+/* ===== BLOB: органическое переливающееся пятно позади лого (только desktop) =====
+   Один слой = морфинг border-radius (форма "дышит"), второй слой = вращающийся
+   conic-gradient внутри той же формы (переливы света), как в референсе, но в
+   орхидной палитре сайта. Обе анимации — чистый transform/border-radius,
+   без layout reflow, дешёвые для GPU. */
+@media (hover: hover) and (pointer: fine) {
+  .hero-blob {
+    position: absolute;
+    inset: 6% 8%;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+    border-radius: 42% 58% 63% 37% / 41% 44% 56% 59%;
+    animation: blobMorph 13s ease-in-out infinite;
+    opacity: .55;
+    mix-blend-mode: screen;
+    will-change: border-radius;
+  }
+  .hero-blob::before {
+    content: "";
+    position: absolute;
+    inset: -30%;
+    background: conic-gradient(
+      from 0deg at 50% 50%,
+      transparent 0deg,
+      rgba(186,141,255,.9) 35deg,
+      transparent 90deg,
+      transparent 190deg,
+      rgba(169,116,255,.8) 230deg,
+      transparent 290deg,
+      transparent 360deg
+    );
+    filter: blur(18px);
+    animation: blobSpin 9s linear infinite;
+    will-change: transform;
+  }
+  .hero-blob::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 50%, transparent 55%, var(--midnight) 100%);
+    opacity: .35;
+  }
+
+  @keyframes blobMorph {
+    0%, 100% { border-radius: 42% 58% 63% 37% / 41% 44% 56% 59%; }
+    25%      { border-radius: 58% 42% 39% 61% / 55% 60% 40% 45%; }
+    50%      { border-radius: 48% 52% 55% 45% / 62% 38% 62% 38%; }
+    75%      { border-radius: 63% 37% 45% 55% / 44% 56% 41% 59%; }
+  }
+  @keyframes blobSpin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
 }
 
 .hero-logo-inner {
@@ -1251,6 +1374,7 @@ html { scrollbar-gutter: stable; }
   :root { --hero-blur-in: 0px; }
 
   .hero-logo-wrap { will-change: auto; }
+  .hero-blob { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1268,6 +1392,8 @@ html { scrollbar-gutter: stable; }
   .hero-content > *, .hero-visual { opacity: 1; transform: none; filter: none; }
   .reveal, .kulsh-features li, .link-card { opacity: 1; transform: none; }
   .drawer-item { opacity: 1; transform: none; }
+  .hero-blob, .hero-blob::before { animation: none; }
+  .bg-base { animation: none; }
 }
 
 /* ===== MOBILE LAYOUT ===== */

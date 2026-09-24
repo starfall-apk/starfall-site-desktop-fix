@@ -9,8 +9,53 @@
   }
 
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var canHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
   /* Главная страница помечена <body data-page="home"> — у неё чуть другие пороги и поведение бренда */
   var isHome = document.body.getAttribute('data-page') === 'home';
+
+  /* ============ BUTTON TEXT SLIDE: оборачиваем текстовый узел кнопки ============
+     Берём текст внутри .btn (после иконки), оборачиваем в .btn-label с двумя
+     идентичными копиями — при hover весь стек уезжает вверх на высоту строки,
+     старая копия прячется за overflow:hidden, новая идентичная заезжает снизу. */
+  if (canHover && !reduceMotion) {
+    document.querySelectorAll('.btn').forEach(function (btn) {
+      if (btn.querySelector('.btn-label')) return;
+      var textNode = null;
+      for (var i = 0; i < btn.childNodes.length; i++) {
+        var n = btn.childNodes[i];
+        if (n.nodeType === 3 && n.textContent.trim().length) { textNode = n; break; }
+      }
+      if (!textNode) return;
+      var text = textNode.textContent.trim();
+
+      var label = document.createElement('span');
+      label.className = 'btn-label';
+      var stack = document.createElement('span');
+      stack.className = 'btn-label-stack';
+      var s1 = document.createElement('span');
+      s1.textContent = text;
+      var s2 = document.createElement('span');
+      s2.textContent = text;
+      s2.setAttribute('aria-hidden', 'true');
+      stack.appendChild(s1);
+      stack.appendChild(s2);
+      label.appendChild(stack);
+
+      btn.replaceChild(label, textNode);
+    });
+  }
+
+  /* ============ ФОН НА МОБИЛЬНОМ: лёгкое переливание, привязанное к скроллу ============
+     Один CSS var --scroll-p (0..1), обновляется в rAF внутри общего onScroll —
+     ноль дополнительных слушателей, ноль layout thrashing, только transform/opacity. */
+  var isCoarse = window.matchMedia('(hover: none), (pointer: coarse)').matches;
+  var setScrollVar = null;
+  if (isCoarse && !reduceMotion) {
+    var docEl = document.documentElement;
+    setScrollVar = function (pct) {
+      docEl.style.setProperty('--scroll-p', pct.toFixed(4));
+    };
+  }
 
   /* ============ RIPPLE ============ */
   document.querySelectorAll('[data-ripple]').forEach(function (el) {
@@ -56,6 +101,8 @@
         header.classList.toggle('is-scrolled', scrolled);
         lastScrolled = scrolled;
       }
+
+      if (setScrollVar) setScrollVar(pct);
 
       rafPending = false;
     });
