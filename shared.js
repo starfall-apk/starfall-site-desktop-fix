@@ -14,9 +14,11 @@
   var isHome = document.body.getAttribute('data-page') === 'home';
 
   /* ============ BUTTON TEXT SLIDE: оборачиваем текстовый узел кнопки ============
-     Берём текст внутри .btn (после иконки), оборачиваем в .btn-label с двумя
-     идентичными копиями — при hover весь стек уезжает вверх на высоту строки,
-     старая копия прячется за overflow:hidden, новая идентичная заезжает снизу. */
+     Разбиваем текст на буквы. Каждая буква получает свой мини-стек из двух
+     идентичных копий (оригинал + дубль снизу, aria-hidden) и свой индекс
+     --char-i для transition-delay в CSS — при hover буквы уезжают вверх
+     по очереди слева направо, дубли заезжают снизу на их место.
+     Сама надпись остаётся доступной screen-reader'ам как aria-label. */
   if (canHover && !reduceMotion) {
     document.querySelectorAll('.btn').forEach(function (btn) {
       if (btn.querySelector('.btn-label')) return;
@@ -28,18 +30,32 @@
       if (!textNode) return;
       var text = textNode.textContent.trim();
 
+      if (!btn.hasAttribute('aria-label')) btn.setAttribute('aria-label', btn.textContent.trim());
+
       var label = document.createElement('span');
       label.className = 'btn-label';
-      var stack = document.createElement('span');
-      stack.className = 'btn-label-stack';
-      var s1 = document.createElement('span');
-      s1.textContent = text;
-      var s2 = document.createElement('span');
-      s2.textContent = text;
-      s2.setAttribute('aria-hidden', 'true');
-      stack.appendChild(s1);
-      stack.appendChild(s2);
-      label.appendChild(stack);
+      label.setAttribute('aria-hidden', 'true');
+
+      for (var ci = 0; ci < text.length; ci++) {
+        var ch = text[ci];
+        var charSpan = document.createElement('span');
+        charSpan.className = 'btn-char';
+        if (ch === ' ') charSpan.style.width = '0.32em';
+
+        var stack = document.createElement('span');
+        stack.className = 'btn-char-stack';
+        stack.style.setProperty('--char-i', ci);
+
+        var s1 = document.createElement('span');
+        s1.textContent = ch;
+        var s2 = document.createElement('span');
+        s2.textContent = ch;
+
+        stack.appendChild(s1);
+        stack.appendChild(s2);
+        charSpan.appendChild(stack);
+        label.appendChild(charSpan);
+      }
 
       btn.replaceChild(label, textNode);
     });
