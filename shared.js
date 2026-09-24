@@ -9,6 +9,8 @@
   }
 
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  /* Главная страница помечена <body data-page="home"> — у неё чуть другие пороги и поведение бренда */
+  var isHome = document.body.getAttribute('data-page') === 'home';
 
   /* ============ RIPPLE ============ */
   document.querySelectorAll('[data-ripple]').forEach(function (el) {
@@ -71,7 +73,7 @@
           io.unobserve(entry.target);
         }
       });
-    }, { threshold: 0.12, rootMargin: '0px 0px -60px 0px' });
+    }, { threshold: isHome ? 0.15 : 0.12, rootMargin: '0px 0px -60px 0px' });
 
     revealTargets.forEach(function (el) { io.observe(el); });
   } else {
@@ -114,7 +116,7 @@
     });
 
     /* Пункт текущей страницы: не перезагружаем страницу, а просто закрываем меню */
-    drawer.querySelectorAll('.drawer-item.is-active').forEach(function (item) {
+    drawer.querySelectorAll(isHome ? '.drawer-item.is-active, .drawer-brand' : '.drawer-item.is-active').forEach(function (item) {
       item.addEventListener('click', function (e) {
         e.preventDefault();
         closeDrawer();
