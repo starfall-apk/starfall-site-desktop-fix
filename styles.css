@@ -275,29 +275,29 @@ html { scrollbar-gutter: stable; }
   .bg-shine { opacity: calc(.55 + var(--scroll-p, 0) * .45); }
 }
 
-/* ===== ПЕРЕЛИВАНИЕ ФОНА ОТ СКОРОСТИ КУРСОРА (desktop): без пятен света.
-   --shimmer-speed (0..1, задаётся в JS по скорости движения мыши) слегка
-   ускоряет уже существующие фоновые анимации (bgDrift/bgPulseA/bgPulseB)
-   и чуть повышает их яркость — сам свет никогда не становится заметным
-   пятном, просто общее переливание фона "оживает" при активном движении
-   мыши и остывает обратно, когда курсор замирает. ===== */
+/* ===== ПЕРЕЛИВАНИЕ ФОНА ОТ ДВИЖЕНИЯ КУРСОРА (desktop): без пятен света.
+   ВАЖНО: здесь НЕТ animation-duration — раньше duration менялся на лету
+   у уже идущей keyframe-анимации (bgDrift/bgPulseA/B), а смена duration
+   у анимации в процессе воспроизведения пересчитывает её фазу и даёт
+   резкий видимый "скачок"/раскачку. Плюс раньше скорость считалась как
+   Math.max-накопитель, который только рос и медленно "стекал" — отсюда
+   ощущение "копит энергию, потом резко дёргается". Теперь никакого
+   накопителя и никакой перепривязки анимаций: --shimmer-x/-y (сглаженное,
+   с задержкой направление курсора) и --shimmer-amt (сглаженная величина)
+   лишь добавляют statically-независимый translate3d поверх уже идущего
+   keyframe-дрейфа — на родительском .bg-layer, transform которого
+   не участвует ни в одной keyframe-анимации, поэтому конфликтов фазы
+   в принципе быть не может. */
 @media (hover: hover) and (pointer: fine) {
-  .bg-base {
-    animation-duration: calc(40s - var(--shimmer-speed, 0) * 27s);
-  }
-  .bg-base::before {
-    animation-duration: calc(17s - var(--shimmer-speed, 0) * 11s);
-    /* opacity уже анимируется в bgPulseA — статичным opacity его не
-       усилить (перетрётся keyframe), поэтому яркость поднимаем через
-       filter, который с opacity не конфликтует. */
-    filter: brightness(calc(1 + var(--shimmer-speed, 0) * 0.25));
-  }
-  .bg-base::after {
-    animation-duration: calc(23s - var(--shimmer-speed, 0) * 15s);
-    filter: brightness(calc(1 + var(--shimmer-speed, 0) * 0.25));
-  }
-  .bg-shine {
-    animation-duration: calc(26s - var(--shimmer-speed, 0) * 17s);
+  .bg-layer {
+    transform: translate3d(
+      calc(var(--shimmer-x, 0) * 26px),
+      calc(var(--shimmer-y, 0) * 26px),
+      0
+    );
+    /* filter не анимируется ни в одном keyframe — безопасно модулировать
+       напрямую, без риска конфликта фазы. */
+    filter: brightness(calc(1 + var(--shimmer-amt, 0) * 0.18));
   }
 }
 
@@ -778,8 +778,8 @@ html { scrollbar-gutter: stable; }
   }
   .btn-char-stack {
     display: block;
-    transition: transform 550ms var(--ease-spring);
-    transition-delay: calc(var(--char-i, 0) * 70ms);
+    transition: transform 320ms var(--ease-spring);
+    transition-delay: calc(var(--char-i, 0) * 38ms);
     will-change: transform;
   }
   .btn-char-stack span {

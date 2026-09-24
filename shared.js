@@ -68,7 +68,7 @@
          все разом. .btn-leaving — обнуляет transition-delay при преждевременном
          уходе курсора, буквы едут назад единым фронтом. */
       var charCount = text.length;
-      var waveDuration = 550 + charCount * 70; // держим в синхроне со CSS (550ms база + 70ms/буква)
+      var waveDuration = 320 + charCount * 38; // держим в синхроне со CSS (320ms база + 38ms/буква)
       var hoverStartedAt = 0;
       var pendingEnter = false;
 
@@ -128,35 +128,73 @@
     };
   }
 
-  /* ============ ПЕРЕЛИВАНИЕ ФОНА ОТ СКОРОСТИ КУРСОРА (desktop) ============
-     Без пятен света, следующих за курсором. Вместо этого — один плавный
-     CSS-var --shimmer-speed (0..1), который растёт от скорости движения
-     мыши (px/ms, сглажено lerp) и управляет ТОЛЬКО скоростью/интенсивностью
-     уже существующего фонового переливания (.bg-base/.bg-shine, см. ниже
-     bgDrift/bgPulseA/bgPulseB) — через animation-duration и небольшую
-     прибавку opacity. Никакого отдельного слоя, никакой позиции курсора
-     в разметке — фон просто "оживает" чуть быстрее, когда двигаешь мышью
-     активнее, и сам затухает, когда мышь замирает. */
+  /* ============ ПЕРЕЛИВАНИЕ ФОНА ОТ ДВИЖЕНИЯ КУРСОРА (desktop) ============
+     Без пятен света. Управляем ДВУМЯ CSS-переменными, читаемыми только
+     в rAF-цикле ниже (не через animation-duration!):
+       --shimmer-x / --shimmer-y — сглаженное, с задержкой направление
+       (единичный вектор, куда "клонится" переливание — пропорционально
+       направлению курсора, а не случайно), --shimmer-amt — интенсивность.
+     Раньше было два источника рывков: 1) targetSpeed считался как
+     нарастающий максимум (Math.max), а не текущая скорость — отсюда
+     несглаженные скачки; 2) --shimmer-speed крутил animation-duration уже
+     идущей keyframe-анимации, а смена duration на лету пересчитывает фазу
+     анимации и даёт визуальный "прыжок". Теперь никакой смены duration:
+     сдвиг фона — это единственный непрерывный translate3d, целиком через
+     lerp, с задержкой отклика (lag) и медленным плавным затуханием. */
   if (canHover && !reduceMotion) {
     var bgLayerEl = document.querySelector('.bg-layer');
     if (bgLayerEl) {
       var docElShimmer = document.documentElement;
       var lastPX = null, lastPY = null, lastPT = null;
-      var curSpeed = 0, targetSpeed = 0;
+      /* Сырой вектор скорости курсора, сглаженный экспоненциально (EMA) —
+         не максимум, а именно текущее значение, поэтому реагирует плавно
+         в обе стороны (и на разгон, и на замедление). */
+      var velX = 0, velY = 0;
+      /* Векторы, которые реально идут в CSS — со своим, более медленным
+         lerp поверх velX/velY. Это и есть "задержка от курсора": фон
+         догоняет направление курсора с ощутимым лагом, а не дёргается
+         вслед за каждым движением. */
+      var driftX = 0, driftY = 0, driftAmt = 0;
       var shimmerRaf = null;
 
+      /* Сырой мгновенный вектор из последнего pointermove-события — сам по
+         себе шумный (события идут не строго по кадрам), поэтому НЕ пишется
+         в vel* напрямую, а лишь служит целью, к которой vel* плавно едет
+         в rAF-цикле ниже. Так убирается дребезг на входе, до того как
+         вектор вообще попадёт в задержанный drift*. */
+      var rawX = 0, rawY = 0;
+
       function shimmerLoop() {
-        curSpeed += (targetSpeed - curSpeed) * 0.05;
-        docElShimmer.style.setProperty('--shimmer-speed', curSpeed.toFixed(3));
-        /* Целевая скорость затухает к нулю сама — так фон плавно
-           возвращается к базовому неспешному переливанию, когда
-           курсор перестаёт двигаться, без отдельного mouseleave. */
-        targetSpeed *= 0.92;
-        if (curSpeed > 0.002 || targetSpeed > 0.002) {
+        /* 1) vel* — быстро, но плавно (EMA) следует за сырым вектором;
+              между событиями rawX/Y сами по себе не затухают, поэтому
+              здесь же плавно тянем их к нулю, если новых событий нет. */
+        rawX *= 0.94; rawY *= 0.94;
+        velX += (rawX - velX) * 0.18;
+        velY += (rawY - velY) * 0.18;
+
+        var targetAmt = Math.min(Math.hypot(velX, velY) / 1.8, 1);
+        /* 2) drift* — САМА задержка: медленно, с заметным лагом догоняет
+              vel*. Маленький коэффициент = дольше едет и дольше тормозит,
+              то есть переливание всегда плавное и никогда резкое. */
+        driftX += (velX - driftX) * 0.012;
+        driftY += (velY - driftY) * 0.012;
+        driftAmt += (targetAmt - driftAmt) * 0.01;
+
+        docElShimmer.style.setProperty('--shimmer-x', driftX.toFixed(4));
+        docElShimmer.style.setProperty('--shimmer-y', driftY.toFixed(4));
+        docElShimmer.style.setProperty('--shimmer-amt', driftAmt.toFixed(4));
+
+        if (Math.abs(rawX) > 0.0005 || Math.abs(rawY) > 0.0005 ||
+            Math.abs(velX) > 0.0005 || Math.abs(velY) > 0.0005 ||
+            Math.abs(driftX) > 0.0005 || Math.abs(driftY) > 0.0005 ||
+            driftAmt > 0.0005) {
           shimmerRaf = requestAnimationFrame(shimmerLoop);
         } else {
-          curSpeed = 0; targetSpeed = 0;
-          docElShimmer.style.setProperty('--shimmer-speed', '0');
+          rawX = 0; rawY = 0; velX = 0; velY = 0;
+          driftX = 0; driftY = 0; driftAmt = 0;
+          docElShimmer.style.setProperty('--shimmer-x', '0');
+          docElShimmer.style.setProperty('--shimmer-y', '0');
+          docElShimmer.style.setProperty('--shimmer-amt', '0');
           shimmerRaf = null;
         }
       }
@@ -165,12 +203,18 @@
         var now = performance.now();
         if (lastPT !== null) {
           var dt = now - lastPT;
-          if (dt > 0) {
-            var dist = Math.hypot(e.clientX - lastPX, e.clientY - lastPY);
-            var v = dist / dt; // px/ms
-            /* Нормализуем и ограничиваем — быстрый свайп мышью не должен
-               разгонять переливание до неадекватной скорости. */
-            targetSpeed = Math.max(targetSpeed, Math.min(v / 3.2, 1));
+          if (dt > 0 && dt < 200) { // отсекаем аномальные скачки dt (напр. после паузы вкладки)
+            /* Направление (единичный вектор) * величина скорости — так
+               переливание клонится именно туда, куда движется курсор,
+               а не абстрактно "быстрее/медленнее". Пишем только в raw* —
+               сглаживание происходит целиком в rAF-цикле выше. */
+            var dx = e.clientX - lastPX, dy = e.clientY - lastPY;
+            var dist = Math.hypot(dx, dy);
+            if (dist > 0.5) {
+              var v = Math.min(dist / dt, 3); // px/ms, с потолком
+              rawX = (dx / dist) * v;
+              rawY = (dy / dist) * v;
+            }
           }
         }
         lastPX = e.clientX; lastPY = e.clientY; lastPT = now;
