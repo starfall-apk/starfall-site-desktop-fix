@@ -69,15 +69,28 @@
       var hoverStartedAt = 0;
 
       btn.addEventListener('mouseenter', function () {
-        btn.classList.remove('btn-leaving');
+        /* Гасим отложенный remove от предыдущего leaving-таймера — иначе он
+           может выстрелить ПОСЛЕ этого mouseenter и ничего не сломает, но
+           сам remove('btn-leaving') ниже обязательно должен быть подхвачен
+           браузером ДО того, как :hover-стили выставят новый transform,
+           иначе используется закэшированный transition-delay:0ms и вся
+           волна едет одним фронтом вместо по буквам. */
+        clearTimeout(btn._leavingTimer);
+        if (btn.classList.contains('btn-leaving')) {
+          btn.classList.remove('btn-leaving');
+          /* Форсируем reflow, чтобы снятие класса и его transition-delay:0
+             гарантированно применились ДО следующего transform (:hover),
+             который должен пойти уже с волновой задержкой по --char-i. */
+          void btn.offsetWidth;
+        }
         hoverStartedAt = performance.now();
       });
 
       btn.addEventListener('mouseleave', function () {
         var elapsed = performance.now() - hoverStartedAt;
+        clearTimeout(btn._leavingTimer);
         if (elapsed < waveDuration) {
           btn.classList.add('btn-leaving');
-          clearTimeout(btn._leavingTimer);
           btn._leavingTimer = setTimeout(function () {
             btn.classList.remove('btn-leaving');
           }, 600);
@@ -109,21 +122,33 @@
   if (canHover && !reduceMotion) {
     var glow = document.createElement('div');
     glow.className = 'bg-cursor-glow';
+    var glowCore = document.createElement('div');
+    glowCore.className = 'bg-cursor-glow-core';
+    glow.appendChild(glowCore);
     var bgLayer = document.querySelector('.bg-layer');
     if (bgLayer) {
       bgLayer.appendChild(glow);
 
       var gx = window.innerWidth / 2, gy = window.innerHeight / 2;
+      var gcx = gx, gcy = gy;
       var tx = gx, ty = gy;
       var glowRaf = null;
 
       function glowLoop() {
+        /* Внешние ореолы — медленнее (0.06), ближний блик — быстрее (0.12).
+           Разная инерция слоёв друг относительно друга — то, что создаёт
+           ощущение объёма/параллакса внутри самого пятна света. */
         gx += (tx - gx) * 0.06;
         gy += (ty - gy) * 0.06;
+        gcx += (tx - gcx) * 0.12;
+        gcy += (ty - gcy) * 0.12;
         glow.style.setProperty('--cx', gx.toFixed(1) + 'px');
         glow.style.setProperty('--cy', gy.toFixed(1) + 'px');
+        glow.style.setProperty('--cx-core', gcx.toFixed(1) + 'px');
+        glow.style.setProperty('--cy-core', gcy.toFixed(1) + 'px');
 
-        if (Math.abs(tx - gx) > 0.5 || Math.abs(ty - gy) > 0.5) {
+        if (Math.abs(tx - gx) > 0.5 || Math.abs(ty - gy) > 0.5 ||
+            Math.abs(tx - gcx) > 0.5 || Math.abs(ty - gcy) > 0.5) {
           glowRaf = requestAnimationFrame(glowLoop);
         } else {
           glowRaf = null;

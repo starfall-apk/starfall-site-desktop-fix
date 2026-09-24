@@ -82,12 +82,13 @@
       const cy = rect.top + rect.height / 2;
       const dx = (e.clientX - cx) / rect.width;
       const dy = (e.clientY - cy) / rect.height;
-      targetX = Math.max(-1, Math.min(1, dx)) * 10;
-      targetY = Math.max(-1, Math.min(1, dy)) * 10;
-      /* Небольшое смещение по позиции (не только поворот) — усиливает
-         ощущение объёма/3D, как лёгкое "притяжение" к свету за курсором. */
-      targetTX = Math.max(-1, Math.min(1, dx)) * 6;
-      targetTY = Math.max(-1, Math.min(1, dy)) * 6;
+      /* Основной эффект — движение логотипа по X/Y вслед за курсором.
+         Поворот (rotateX/Y) оставлен лишь лёгким вторичным штрихом поверх
+         сдвига, а не доминирующим эффектом. */
+      targetTX = Math.max(-1, Math.min(1, dx)) * 22;
+      targetTY = Math.max(-1, Math.min(1, dy)) * 22;
+      targetX = Math.max(-1, Math.min(1, dx)) * 3;
+      targetY = Math.max(-1, Math.min(1, dy)) * 3;
       if (!rafId) rafId = requestAnimationFrame(loop);
     }, { passive: true });
 
