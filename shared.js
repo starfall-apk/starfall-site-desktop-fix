@@ -58,6 +58,33 @@
       }
 
       btn.replaceChild(label, textNode);
+
+      /* ============ ЛОГИКА "все буквы сразу", если курсор ушёл раньше конца волны ============
+         Считаем длительность волны по числу букв. Если пользователь убирает
+         курсор до того, как последняя буква успела доехать наверх, ставим
+         .btn-leaving — это обнуляет transition-delay, и весь набор букв
+         едет обратно единым фронтом, а не по очереди. */
+      var charCount = text.length;
+      var waveDuration = 550 + charCount * 70; // держим в синхроне со CSS (550ms база + 70ms/буква)
+      var hoverStartedAt = 0;
+
+      btn.addEventListener('mouseenter', function () {
+        btn.classList.remove('btn-leaving');
+        hoverStartedAt = performance.now();
+      });
+
+      btn.addEventListener('mouseleave', function () {
+        var elapsed = performance.now() - hoverStartedAt;
+        if (elapsed < waveDuration) {
+          btn.classList.add('btn-leaving');
+          clearTimeout(btn._leavingTimer);
+          btn._leavingTimer = setTimeout(function () {
+            btn.classList.remove('btn-leaving');
+          }, 600);
+        } else {
+          btn.classList.remove('btn-leaving');
+        }
+      });
     });
   }
 
@@ -71,6 +98,48 @@
     setScrollVar = function (pct) {
       docEl.style.setProperty('--scroll-p', pct.toFixed(4));
     };
+  }
+
+  /* ============ КУРСОРНЫЙ СВЕТ (desktop) ============
+     Мягкое размытое пятно следует за курсором с небольшой задержкой —
+     та же lerp-логика, что у параллакса лого на главной (плавный "разгон/
+     торможение" вместо жёсткого прилипания к позиции курсора).
+     Один слой, двигается только через translate3d + CSS-переменные —
+     ноль layout, ноль лишних repaint, дешёвый одиночный rAF-цикл. */
+  if (canHover && !reduceMotion) {
+    var glow = document.createElement('div');
+    glow.className = 'bg-cursor-glow';
+    var bgLayer = document.querySelector('.bg-layer');
+    if (bgLayer) {
+      bgLayer.appendChild(glow);
+
+      var gx = window.innerWidth / 2, gy = window.innerHeight / 2;
+      var tx = gx, ty = gy;
+      var glowRaf = null;
+
+      function glowLoop() {
+        gx += (tx - gx) * 0.06;
+        gy += (ty - gy) * 0.06;
+        glow.style.setProperty('--cx', gx.toFixed(1) + 'px');
+        glow.style.setProperty('--cy', gy.toFixed(1) + 'px');
+
+        if (Math.abs(tx - gx) > 0.5 || Math.abs(ty - gy) > 0.5) {
+          glowRaf = requestAnimationFrame(glowLoop);
+        } else {
+          glowRaf = null;
+        }
+      }
+
+      window.addEventListener('pointermove', function (e) {
+        tx = e.clientX; ty = e.clientY;
+        glow.classList.add('is-active');
+        if (!glowRaf) glowRaf = requestAnimationFrame(glowLoop);
+      }, { passive: true });
+
+      window.addEventListener('pointerleave', function () {
+        glow.classList.remove('is-active');
+      });
+    }
   }
 
   /* ============ RIPPLE ============ */

@@ -214,22 +214,55 @@ html { scrollbar-gutter: stable; }
   50%      { transform: translate3d(12%, 8%, 0); }
 }
 
-/* ===== ПЕРЕЛИВАНИЕ ФОНА (desktop): те же градиенты и та же яркость,
-   просто сам слой плавно "плывёт" через transform — это анимируется
-   браузером нативно и без скачков, в отличие от анимации позиций
-   градиента через CSS-переменные. ===== */
+/* ===== ПЕРЕЛИВАНИЕ ФОНА (desktop) =====
+   Идея — как в референсе: не «мигание» всего слоя, а несколько мягких
+   цветных пятен, каждое дышит своей яркостью и слегка плывёт по своей
+   орбите, все с разными периодами и без общей синхронизации, поэтому
+   взгляд не считывает единый ритм — переливание выглядит живым и плавным.
+   Каждое пятно — отдельный псевдоэлемент, анимируется только transform
+   и opacity (композитные свойства, не вызывают repaint/layout). */
 @media (hover: hover) and (pointer: fine) {
   .bg-base {
-    animation: bgDrift 34s ease-in-out infinite;
+    animation: bgDrift 40s ease-in-out infinite;
     will-change: transform;
+  }
+  .bg-base::before,
+  .bg-base::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    will-change: transform, opacity;
+  }
+  .bg-base::before {
+    background:
+      radial-gradient(ellipse 42% 48% at 28% 24%, rgba(186,141,255,.30), transparent 68%),
+      radial-gradient(ellipse 38% 44% at 74% 66%, rgba(138,91,217,.22), transparent 68%);
+    animation: bgPulseA 17s ease-in-out infinite;
+    transform-origin: 30% 25%;
+  }
+  .bg-base::after {
+    background:
+      radial-gradient(ellipse 40% 46% at 70% 18%, rgba(169,116,255,.24), transparent 70%),
+      radial-gradient(ellipse 36% 40% at 20% 78%, rgba(186,141,255,.18), transparent 70%);
+    animation: bgPulseB 23s ease-in-out infinite;
+    transform-origin: 70% 20%;
   }
 }
 
 @keyframes bgDrift {
   0%   { transform: translate3d(0, 0, 0) scale(1); }
-  33%  { transform: translate3d(-3%, 2%, 0) scale(1.03); }
-  66%  { transform: translate3d(2%, -3%, 0) scale(1.02); }
+  50%  { transform: translate3d(-2%, 2%, 0) scale(1.025); }
   100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes bgPulseA {
+  0%, 100% { opacity: .7;  transform: scale(1)     translate3d(0, 0, 0); }
+  50%      { opacity: 1;   transform: scale(1.12)  translate3d(2%, -2%, 0); }
+}
+
+@keyframes bgPulseB {
+  0%, 100% { opacity: .55; transform: scale(1.08)  translate3d(0, 0, 0); }
+  50%      { opacity: .95; transform: scale(1)     translate3d(-2%, 2%, 0); }
 }
 
 /* ===== ПЕРЕЛИВАНИЕ ФОНА (mobile: привязано к скроллу, максимально дёшево — один transform, без repaint) ===== */
@@ -240,6 +273,28 @@ html { scrollbar-gutter: stable; }
     animation: none;
   }
   .bg-shine { opacity: calc(.55 + var(--scroll-p, 0) * .45); }
+}
+
+/* ===== КУРСОРНЫЙ СВЕТ (desktop): мягкое размытое пятно, следующее за
+   курсором с лёгкой задержкой (lerp в JS). Один слой, transform-only,
+   двигается через translate3d — не задевает layout, дёшево для GPU. ===== */
+@media (hover: hover) and (pointer: fine) {
+  .bg-cursor-glow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 640px;
+    height: 640px;
+    margin: -320px 0 0 -320px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(186,141,255,.16), rgba(169,116,255,.07) 45%, transparent 72%);
+    filter: blur(8px);
+    transform: translate3d(var(--cx, 50vw), var(--cy, 40vh), 0);
+    opacity: 0;
+    transition: opacity 500ms var(--ease);
+    will-change: transform;
+  }
+  .bg-cursor-glow.is-active { opacity: 1; }
 }
 
 /* ===== SKIP LINK ===== */
@@ -701,9 +756,9 @@ html { scrollbar-gutter: stable; }
 /* ===== BUTTON TEXT SLIDE — побуквенно, волной слева направо (только desktop) =====
    Каждая буква — свой мини-стек из двух копий (оригинал + дубль снизу).
    При hover буква уезжает вверх и выезжает дублем — с задержкой,
-   увеличивающейся от буквы к букве, отчего получается быстрая волна слева-направо.
-   Сам сдвиг одной буквы быстрый (180ms), а волна по всей надписи растянута
-   за счёт --char-delay, из-за чего эффект в целом читается медленнее. */
+   увеличивающейся от буквы к букве, отчего получается волна слева-направо.
+   При уходе курсора ДО завершения волны — JS добавляет .btn-leaving, который
+   обнуляет все задержки, и все буквы возвращаются на место одновременно. */
 @media (hover: hover) and (pointer: fine) {
   .btn-label {
     position: relative;
@@ -719,8 +774,8 @@ html { scrollbar-gutter: stable; }
   }
   .btn-char-stack {
     display: block;
-    transition: transform 200ms var(--ease-spring);
-    transition-delay: calc(var(--char-i, 0) * 28ms);
+    transition: transform 550ms var(--ease-spring);
+    transition-delay: calc(var(--char-i, 0) * 70ms);
     will-change: transform;
   }
   .btn-char-stack span {
@@ -730,6 +785,10 @@ html { scrollbar-gutter: stable; }
   }
   .btn:hover .btn-char-stack {
     transform: translate3d(0, -1.15em, 0);
+  }
+  /* Курсор ушёл раньше конца волны: буквы едут назад ВСЕ ВМЕСТЕ, без волны */
+  .btn.btn-leaving .btn-char-stack {
+    transition-delay: 0ms;
   }
 }
 
@@ -1333,6 +1392,8 @@ html { scrollbar-gutter: stable; }
   .reveal, .kulsh-features li, .link-card { opacity: 1; transform: none; }
   .drawer-item { opacity: 1; transform: none; }
   .bg-base { animation: none; }
+  .bg-base::before, .bg-base::after { animation: none; }
+  .bg-cursor-glow { display: none; }
 }
 
 /* ===== MOBILE LAYOUT ===== */

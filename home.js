@@ -51,6 +51,8 @@
   if (logoWrap && canHover && !reduceMotion) {
     let targetX = 0, targetY = 0;
     let curX = 0, curY = 0;
+    let targetTX = 0, targetTY = 0;
+    let curTX = 0, curTY = 0;
     let rafId = null;
 
     logoWrap.style.willChange = 'transform';
@@ -58,10 +60,14 @@
     function loop() {
       curX += (targetX - curX) * 0.08;
       curY += (targetY - curY) * 0.08;
+      curTX += (targetTX - curTX) * 0.06;
+      curTY += (targetTY - curTY) * 0.06;
       logoWrap.style.transform =
+        'translate3d(' + curTX.toFixed(2) + 'px, ' + curTY.toFixed(2) + 'px, 0) ' +
         'rotateY(' + curX.toFixed(2) + 'deg) rotateX(' + (-curY).toFixed(2) + 'deg)';
 
-      if (Math.abs(targetX - curX) > 0.01 || Math.abs(targetY - curY) > 0.01) {
+      if (Math.abs(targetX - curX) > 0.01 || Math.abs(targetY - curY) > 0.01 ||
+          Math.abs(targetTX - curTX) > 0.05 || Math.abs(targetTY - curTY) > 0.05) {
         rafId = requestAnimationFrame(loop);
       } else {
         rafId = null;
@@ -78,11 +84,16 @@
       const dy = (e.clientY - cy) / rect.height;
       targetX = Math.max(-1, Math.min(1, dx)) * 10;
       targetY = Math.max(-1, Math.min(1, dy)) * 10;
+      /* Небольшое смещение по позиции (не только поворот) — усиливает
+         ощущение объёма/3D, как лёгкое "притяжение" к свету за курсором. */
+      targetTX = Math.max(-1, Math.min(1, dx)) * 6;
+      targetTY = Math.max(-1, Math.min(1, dy)) * 6;
       if (!rafId) rafId = requestAnimationFrame(loop);
     }, { passive: true });
 
     window.addEventListener('mouseleave', function () {
       targetX = 0; targetY = 0;
+      targetTX = 0; targetTY = 0;
       if (!rafId) rafId = requestAnimationFrame(loop);
     });
   }
