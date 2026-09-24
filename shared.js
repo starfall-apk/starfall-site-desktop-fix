@@ -59,34 +59,49 @@
 
       btn.replaceChild(label, textNode);
 
-      /* ============ ЛОГИКА "все буквы сразу", если курсор ушёл раньше конца волны ============
-         Считаем длительность волны по числу букв. Если пользователь убирает
-         курсор до того, как последняя буква успела доехать наверх, ставим
-         .btn-leaving — это обнуляет transition-delay, и весь набор букв
-         едет обратно единым фронтом, а не по очереди. */
+      /* ============ СОСТОЯНИЕ ВОЛНЫ — полностью через JS, без CSS :hover ============
+         .btn-hovering запускает волну вверх по буквам (вместо :hover — так
+         момент старта полностью в руках JS, а не браузерного :hover, который
+         снимается синхронно с mouseleave и мог стартовать новый transition
+         ПОВЕРХ ещё не долетевшего предыдущего при быстром повторном наведении,
+         из-за чего буквы оказывались в разных фазах и визуально дёргались
+         все разом. .btn-leaving — обнуляет transition-delay при преждевременном
+         уходе курсора, буквы едут назад единым фронтом. */
       var charCount = text.length;
       var waveDuration = 550 + charCount * 70; // держим в синхроне со CSS (550ms база + 70ms/буква)
       var hoverStartedAt = 0;
+      var pendingEnter = false;
+
+      function startWave() {
+        pendingEnter = false;
+        clearTimeout(btn._leavingTimer);
+        btn.classList.remove('btn-leaving');
+        /* Двойной rAF — гарантирует, что браузер закоммитил кадр БЕЗ
+           .btn-leaving и БЕЗ .btn-hovering (т.е. полностью "нулевое"
+           состояние) прежде чем мы включим волну. Одного reflow бывает
+           недостаточно: браузер может склеить снятие класса и следующий
+           transform в один кадр композитинга. Два rAF ждут кадр отрисовки
+           дважды — так предыдущий transition гарантированно "остывает". */
+      btn.classList.remove('btn-hovering');
+        void btn.offsetWidth;
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            if (!btn.matches(':hover')) return; // курсор уже ушёл, пока ждали кадры
+            btn.classList.add('btn-hovering');
+            hoverStartedAt = performance.now();
+          });
+        });
+      }
 
       btn.addEventListener('mouseenter', function () {
-        /* Гасим отложенный remove от предыдущего leaving-таймера — иначе он
-           может выстрелить ПОСЛЕ этого mouseenter и ничего не сломает, но
-           сам remove('btn-leaving') ниже обязательно должен быть подхвачен
-           браузером ДО того, как :hover-стили выставят новый transform,
-           иначе используется закэшированный transition-delay:0ms и вся
-           волна едет одним фронтом вместо по буквам. */
-        clearTimeout(btn._leavingTimer);
-        if (btn.classList.contains('btn-leaving')) {
-          btn.classList.remove('btn-leaving');
-          /* Форсируем reflow, чтобы снятие класса и его transition-delay:0
-             гарантированно применились ДО следующего transform (:hover),
-             который должен пойти уже с волновой задержкой по --char-i. */
-          void btn.offsetWidth;
-        }
-        hoverStartedAt = performance.now();
+        if (pendingEnter) return;
+        pendingEnter = true;
+        startWave();
       });
 
       btn.addEventListener('mouseleave', function () {
+        pendingEnter = false;
+        btn.classList.remove('btn-hovering');
         var elapsed = performance.now() - hoverStartedAt;
         clearTimeout(btn._leavingTimer);
         if (elapsed < waveDuration) {
@@ -113,57 +128,54 @@
     };
   }
 
-  /* ============ КУРСОРНЫЙ СВЕТ (desktop) ============
-     Мягкое размытое пятно следует за курсором с небольшой задержкой —
-     та же lerp-логика, что у параллакса лого на главной (плавный "разгон/
-     торможение" вместо жёсткого прилипания к позиции курсора).
-     Один слой, двигается только через translate3d + CSS-переменные —
-     ноль layout, ноль лишних repaint, дешёвый одиночный rAF-цикл. */
+  /* ============ ПЕРЕЛИВАНИЕ ФОНА ОТ СКОРОСТИ КУРСОРА (desktop) ============
+     Без пятен света, следующих за курсором. Вместо этого — один плавный
+     CSS-var --shimmer-speed (0..1), который растёт от скорости движения
+     мыши (px/ms, сглажено lerp) и управляет ТОЛЬКО скоростью/интенсивностью
+     уже существующего фонового переливания (.bg-base/.bg-shine, см. ниже
+     bgDrift/bgPulseA/bgPulseB) — через animation-duration и небольшую
+     прибавку opacity. Никакого отдельного слоя, никакой позиции курсора
+     в разметке — фон просто "оживает" чуть быстрее, когда двигаешь мышью
+     активнее, и сам затухает, когда мышь замирает. */
   if (canHover && !reduceMotion) {
-    var glow = document.createElement('div');
-    glow.className = 'bg-cursor-glow';
-    var glowCore = document.createElement('div');
-    glowCore.className = 'bg-cursor-glow-core';
-    glow.appendChild(glowCore);
-    var bgLayer = document.querySelector('.bg-layer');
-    if (bgLayer) {
-      bgLayer.appendChild(glow);
+    var bgLayerEl = document.querySelector('.bg-layer');
+    if (bgLayerEl) {
+      var docElShimmer = document.documentElement;
+      var lastPX = null, lastPY = null, lastPT = null;
+      var curSpeed = 0, targetSpeed = 0;
+      var shimmerRaf = null;
 
-      var gx = window.innerWidth / 2, gy = window.innerHeight / 2;
-      var gcx = gx, gcy = gy;
-      var tx = gx, ty = gy;
-      var glowRaf = null;
-
-      function glowLoop() {
-        /* Внешние ореолы — медленнее (0.06), ближний блик — быстрее (0.12).
-           Разная инерция слоёв друг относительно друга — то, что создаёт
-           ощущение объёма/параллакса внутри самого пятна света. */
-        gx += (tx - gx) * 0.06;
-        gy += (ty - gy) * 0.06;
-        gcx += (tx - gcx) * 0.12;
-        gcy += (ty - gcy) * 0.12;
-        glow.style.setProperty('--cx', gx.toFixed(1) + 'px');
-        glow.style.setProperty('--cy', gy.toFixed(1) + 'px');
-        glow.style.setProperty('--cx-core', gcx.toFixed(1) + 'px');
-        glow.style.setProperty('--cy-core', gcy.toFixed(1) + 'px');
-
-        if (Math.abs(tx - gx) > 0.5 || Math.abs(ty - gy) > 0.5 ||
-            Math.abs(tx - gcx) > 0.5 || Math.abs(ty - gcy) > 0.5) {
-          glowRaf = requestAnimationFrame(glowLoop);
+      function shimmerLoop() {
+        curSpeed += (targetSpeed - curSpeed) * 0.05;
+        docElShimmer.style.setProperty('--shimmer-speed', curSpeed.toFixed(3));
+        /* Целевая скорость затухает к нулю сама — так фон плавно
+           возвращается к базовому неспешному переливанию, когда
+           курсор перестаёт двигаться, без отдельного mouseleave. */
+        targetSpeed *= 0.92;
+        if (curSpeed > 0.002 || targetSpeed > 0.002) {
+          shimmerRaf = requestAnimationFrame(shimmerLoop);
         } else {
-          glowRaf = null;
+          curSpeed = 0; targetSpeed = 0;
+          docElShimmer.style.setProperty('--shimmer-speed', '0');
+          shimmerRaf = null;
         }
       }
 
       window.addEventListener('pointermove', function (e) {
-        tx = e.clientX; ty = e.clientY;
-        glow.classList.add('is-active');
-        if (!glowRaf) glowRaf = requestAnimationFrame(glowLoop);
+        var now = performance.now();
+        if (lastPT !== null) {
+          var dt = now - lastPT;
+          if (dt > 0) {
+            var dist = Math.hypot(e.clientX - lastPX, e.clientY - lastPY);
+            var v = dist / dt; // px/ms
+            /* Нормализуем и ограничиваем — быстрый свайп мышью не должен
+               разгонять переливание до неадекватной скорости. */
+            targetSpeed = Math.max(targetSpeed, Math.min(v / 3.2, 1));
+          }
+        }
+        lastPX = e.clientX; lastPY = e.clientY; lastPT = now;
+        if (!shimmerRaf) shimmerRaf = requestAnimationFrame(shimmerLoop);
       }, { passive: true });
-
-      window.addEventListener('pointerleave', function () {
-        glow.classList.remove('is-active');
-      });
     }
   }
 

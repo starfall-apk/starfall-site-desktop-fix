@@ -275,67 +275,29 @@ html { scrollbar-gutter: stable; }
   .bg-shine { opacity: calc(.55 + var(--scroll-p, 0) * .45); }
 }
 
-/* ===== КУРСОРНЫЙ СВЕТ (desktop): мягкое, сильно размытое многослойное
-   пятно, следующее за курсором с лёгкой задержкой (lerp в JS).
-   Три вложенных слоя разного радиуса/яркости/скорости — имитация
-   объёмного 3D-света (ближний яркий блик + два широких дальних ореола),
-   а не плоское одноцветное пятно. Каждый слой — только transform/opacity,
-   двигается через translate3d — не задевает layout, дёшево для GPU. ===== */
+/* ===== ПЕРЕЛИВАНИЕ ФОНА ОТ СКОРОСТИ КУРСОРА (desktop): без пятен света.
+   --shimmer-speed (0..1, задаётся в JS по скорости движения мыши) слегка
+   ускоряет уже существующие фоновые анимации (bgDrift/bgPulseA/bgPulseB)
+   и чуть повышает их яркость — сам свет никогда не становится заметным
+   пятном, просто общее переливание фона "оживает" при активном движении
+   мыши и остывает обратно, когда курсор замирает. ===== */
 @media (hover: hover) and (pointer: fine) {
-  .bg-cursor-glow {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 1px;
-    height: 1px;
-    transform: translate3d(var(--cx, 50vw), var(--cy, 40vh), 0);
-    opacity: 0;
-    transition: opacity 700ms var(--ease);
-    will-change: transform;
+  .bg-base {
+    animation-duration: calc(40s - var(--shimmer-speed, 0) * 27s);
   }
-  .bg-cursor-glow.is-active { opacity: 1; }
-
-  /* Дальний, самый широкий и самый размытый ореол — задаёт объём/подсветку */
-  .bg-cursor-glow::before {
-    content: "";
-    position: absolute;
-    top: 0; left: 0;
-    width: 1400px;
-    height: 1400px;
-    margin: -700px 0 0 -700px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(169,116,255,.10), rgba(138,91,217,.045) 40%, transparent 68%);
-    filter: blur(70px);
-    transform: translateZ(0);
+  .bg-base::before {
+    animation-duration: calc(17s - var(--shimmer-speed, 0) * 11s);
+    /* opacity уже анимируется в bgPulseA — статичным opacity его не
+       усилить (перетрётся keyframe), поэтому яркость поднимаем через
+       filter, который с opacity не конфликтует. */
+    filter: brightness(calc(1 + var(--shimmer-speed, 0) * 0.25));
   }
-
-  /* Средний слой — держит форму пятна, тоже сильно размыт, без резкого края */
-  .bg-cursor-glow::after {
-    content: "";
-    position: absolute;
-    top: 0; left: 0;
-    width: 820px;
-    height: 820px;
-    margin: -410px 0 0 -410px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(186,141,255,.13), rgba(169,116,255,.05) 45%, transparent 70%);
-    filter: blur(46px);
-    transform: translateZ(0);
+  .bg-base::after {
+    animation-duration: calc(23s - var(--shimmer-speed, 0) * 15s);
+    filter: brightness(calc(1 + var(--shimmer-speed, 0) * 0.25));
   }
-
-  /* Ближний, самый маленький и самый яркий блик — создаёт ощущение источника
-     света поверх двух широких ореолов, отчего пятно читается объёмным/3D,
-     а не единым плоским кругом */
-  .bg-cursor-glow-core {
-    position: absolute;
-    top: 0; left: 0;
-    width: 320px;
-    height: 320px;
-    margin: -160px 0 0 -160px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(201,166,255,.10), transparent 72%);
-    filter: blur(34px);
-    transform: translate3d(var(--cx-core, 50vw), var(--cy-core, 40vh), 0);
+  .bg-shine {
+    animation-duration: calc(26s - var(--shimmer-speed, 0) * 17s);
   }
 }
 
@@ -825,7 +787,13 @@ html { scrollbar-gutter: stable; }
     line-height: 1.15em;
     height: 1.15em;
   }
-  .btn:hover .btn-char-stack {
+  /* Триггер волны — явный JS-класс .btn-hovering, а НЕ CSS :hover.
+     Раньше был :hover, который браузер снимает синхронно с mouseleave —
+     из-за этого при быстром повторном наведении новый :hover-transition
+     мог стартовать поверх ещё не долетевшего предыдущего (leaving),
+     буквы оказывались в разных фазах и визуально дёргались все разом.
+     Через явный класс JS полностью контролирует момент переключения. */
+  .btn.btn-hovering .btn-char-stack {
     transform: translate3d(0, -1.15em, 0);
   }
   /* Курсор ушёл раньше конца волны: буквы едут назад ВСЕ ВМЕСТЕ, без волны */

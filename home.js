@@ -82,13 +82,14 @@
       const cy = rect.top + rect.height / 2;
       const dx = (e.clientX - cx) / rect.width;
       const dy = (e.clientY - cy) / rect.height;
-      /* Основной эффект — движение логотипа по X/Y вслед за курсором.
-         Поворот (rotateX/Y) оставлен лишь лёгким вторичным штрихом поверх
-         сдвига, а не доминирующим эффектом. */
-      targetTX = Math.max(-1, Math.min(1, dx)) * 22;
-      targetTY = Math.max(-1, Math.min(1, dy)) * 22;
-      targetX = Math.max(-1, Math.min(1, dx)) * 3;
-      targetY = Math.max(-1, Math.min(1, dy)) * 3;
+      /* Поворот — снова основной эффект (как в самой первой версии, но
+         чуть слабее: было *10, стало *8.5). Сдвиг по X/Y — едва заметный
+         штрих, сильно уменьшенный (было *6 в оригинале, тем более было
+         *22 в прошлой правке — теперь всего *1.5). */
+      targetX = Math.max(-1, Math.min(1, dx)) * 8.5;
+      targetY = Math.max(-1, Math.min(1, dy)) * 8.5;
+      targetTX = Math.max(-1, Math.min(1, dx)) * 1.5;
+      targetTY = Math.max(-1, Math.min(1, dy)) * 1.5;
       if (!rafId) rafId = requestAnimationFrame(loop);
     }, { passive: true });
 
